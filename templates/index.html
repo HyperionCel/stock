@@ -379,6 +379,7 @@ createApp({
       if (isNaN(n)) return '-';
       return n.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
     },
+    showToast(text) {
       this.toast.text = text;
       this.toast.show = true;
       if (this.toast.timer) clearTimeout(this.toast.timer);
