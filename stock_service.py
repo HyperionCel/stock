@@ -1,4 +1,3 @@
-import akshare as ak
 import pandas as pd
 import requests
 import json
@@ -6,12 +5,11 @@ import os
 from pypinyin import lazy_pinyin, Style
 from datetime import datetime, timedelta, date
 import re
-import threading
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+A_CACHE_FILE = os.path.join(BASE_DIR, "a_stocks_cache.csv")
 HK_CACHE_FILE = os.path.join(BASE_DIR, "hk_stocks_cache.csv")
 _stock_db = None
-_stock_db_lock = threading.Lock()
 _last_refresh = None
 
 
@@ -34,53 +32,20 @@ def _get_market(raw_code):
     return "hk"
 
 
-def _load_hk_stock_list():
-    """加载港股列表，优先使用缓存文件"""
-    records = []
-
-    # 优先从缓存加载（只要缓存存在就使用，无需重新下载）
-    if os.path.exists(HK_CACHE_FILE):
-        try:
-            df = pd.read_csv(HK_CACHE_FILE, dtype={"code": str})
-            for _, row in df.iterrows():
-                rec = row.to_dict()
-                if pd.isna(rec.get("pinyin")):
-                    pinyin_init, pinyin_full = _generate_pinyin(str(rec.get("name", "")))
-                    rec["pinyin"] = pinyin_init
-                    rec["pinyin_full"] = pinyin_full
-                records.append(rec)
-            print(f"港股列表(缓存): {len(records)}条")
-            return records
-        except Exception as e:
-            print(f"港股缓存读取失败: {e}")
-
-    # 重新加载
+def _load_csv(filepath, label):
+    """从 CSV 缓存文件加载股票列表"""
+    if not os.path.exists(filepath):
+        print(f"{label}缓存不存在: {filepath}")
+        return []
     try:
-        df = ak.stock_hk_spot()
-        col_code = df.columns[1]
-        col_name = df.columns[2]  # 中文名称
-        for _, row in df.iterrows():
-            code = str(row[col_code]).strip().zfill(5)
-            name = str(row[col_name]).strip() if pd.notna(row[col_name]) else str(row[df.columns[3]]).strip()
-            if name and code:
-                pinyin_init, pinyin_full = _generate_pinyin(name)
-                records.append({
-                    "code": code, "name": name,
-                    "pinyin": pinyin_init, "pinyin_full": pinyin_full,
-                    "market": "港股"
-                })
-        # 缓存到文件（存为字符串，防止前导零丢失）
-        df_cache = pd.DataFrame(records)
-        df_cache["code"] = df_cache["code"].astype(str)
-        for col in ["pinyin", "pinyin_full"]:
-            if col in df_cache.columns:
-                df_cache[col] = df_cache[col].fillna("")
-        df_cache.to_csv(HK_CACHE_FILE, index=False)
-        print(f"港股列表加载完成: {len(records)}条")
+        df = pd.read_csv(filepath, dtype={"code": str})
+        df = df.fillna("")
+        records = df.to_dict(orient="records")
+        print(f"{label}列表(缓存): {len(records)}条")
+        return records
     except Exception as e:
-        print(f"港股列表加载失败: {e}")
-
-    return records
+        print(f"{label}缓存读取失败: {e}")
+        return []
 
 
 def load_stock_db():
@@ -89,49 +54,18 @@ def load_stock_db():
     if _last_refresh and (now - _last_refresh).total_seconds() < 3600:
         return True
 
-    with _stock_db_lock:
-        try:
-            records = []
-
-            # A股
-            try:
-                a_df = ak.stock_info_a_code_name()
-                for _, row in a_df.iterrows():
-                    code = str(row["code"]).strip().zfill(6)
-                    name = str(row["name"]).strip()
-                    pinyin_init, pinyin_full = _generate_pinyin(name)
-                    records.append({
-                        "code": code, "name": name,
-                        "pinyin": pinyin_init, "pinyin_full": pinyin_full,
-                        "market": "A股"
-                    })
-                print(f"A股列表: {len(a_df)}条")
-            except Exception as e:
-                print(f"A股列表加载失败: {e}")
-
-            # 港股（后台线程加载，避免阻塞）
-            def load_hk_bg():
-                global _stock_db, _last_refresh
-                nonlocal records
-                hk_records = _load_hk_stock_list()
-                if hk_records:
-                    records.extend(hk_records)
-                with _stock_db_lock:
-                    _stock_db = pd.DataFrame(records)
-                    _last_refresh = now
-                print(f"股票数据库全部加载完成, 共{len(records)}条")
-
-            t = threading.Thread(target=load_hk_bg, daemon=True)
-            t.start()
-            # 先把A股数据设置好，港股后台加载完成后会更新
-            if records:
-                _stock_db = pd.DataFrame(records)
-                _last_refresh = now
-                print(f"A股数据库就绪: {len(records)}条 (港股后台加载中)")
-            return True
-        except Exception as e:
-            print(f"加载股票数据库失败: {e}")
-            return False
+    try:
+        records = []
+        records.extend(_load_csv(A_CACHE_FILE, "A股"))
+        records.extend(_load_csv(HK_CACHE_FILE, "港股"))
+        if records:
+            _stock_db = pd.DataFrame(records)
+            _last_refresh = now
+        print(f"股票数据库加载完成, 共{len(records)}条")
+        return True
+    except Exception as e:
+        print(f"加载股票数据库失败: {e}")
+        return False
 
 
 def search_stocks(query, limit=20):
