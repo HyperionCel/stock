@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="/manifest.json">
+<title>股票投资助手</title>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --primary: #007AFF;
+  --danger: #FF3B30;
+  --success: #34C759;
+  --warning: #FF9500;
+  --bg: #F2F2F7;
+  --card: #FFFFFF;
+  --text: #1C1C1E;
+  --text2: #8E8E93;
+  --border: #E5E5EA;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding-bottom: 60px; -webkit-font-smoothing: antialiased; }
+.page { padding: 12px; max-width: 480px; margin: 0 auto; }
+h2 { font-size: 18px; font-weight: 600; margin: 12px 0; padding: 0 4px; }
+.card { background: var(--card); border-radius: 12px; padding: 14px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.form-group { margin-bottom: 12px; }
+.form-group label { display: block; font-size: 13px; color: var(--text2); margin-bottom: 4px; font-weight: 500; }
+.form-group input, .form-group select { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 15px; background: var(--card); color: var(--text); outline: none; }
+.form-group input:focus { border-color: var(--primary); }
+.form-row { display: flex; gap: 8px; }
+.form-row .form-group { flex: 1; }
+.btn { display: inline-flex; align-items: center; justify-content: center; padding: 10px 20px; border: none; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; transition: opacity 0.2s; }
+.btn:active { opacity: 0.7; }
+.btn-primary { background: var(--primary); color: white; width: 100%; }
+.btn-sm { padding: 6px 14px; font-size: 13px; }
+.btn-danger { background: var(--danger); color: white; }
+.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn-group { display: flex; gap: 8px; }
+.btn-group .btn { flex: 1; }
+.btn-group .btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+.tab-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card); border-top: 1px solid var(--border); display: flex; z-index: 100; padding-bottom: env(safe-area-inset-bottom); }
+.tab-item { flex: 1; text-align: center; padding: 8px 0; font-size: 11px; color: var(--text2); cursor: pointer; transition: color 0.2s; }
+.tab-item.active { color: var(--primary); }
+.tab-item .tab-icon { font-size: 20px; display: block; margin-bottom: 2px; }
+.tab-item span { display: block; }
+
+.search-wrap { position: relative; }
+.search-results { position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 10; }
+.search-item { padding: 10px 12px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 14px; }
+.search-item:last-child { border-bottom: none; }
+.search-item:active { background: var(--bg); }
+.search-item .code { color: var(--text2); font-size: 12px; }
+.search-item .market { float: right; color: var(--primary); font-size: 11px; }
+
+.empty-state { text-align: center; padding: 40px 20px; color: var(--text2); font-size: 14px; }
+
+.trade-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.trade-item:last-child { border-bottom: none; }
+.trade-info { flex: 1; }
+.trade-name { font-size: 15px; font-weight: 500; }
+.trade-detail { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.trade-amount { text-align: right; }
+.trade-price { font-size: 15px; font-weight: 600; }
+.trade-qty { font-size: 12px; color: var(--text2); }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+.badge-buy { background: #FFE0DC; color: var(--danger); }
+.badge-sell { background: #DDFFE6; color: var(--success); }
+
+.pos-card { margin-bottom: 10px; }
+.pos-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.pos-name { font-size: 15px; font-weight: 600; }
+.pos-code { font-size: 12px; color: var(--text2); }
+.pos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.pos-label { font-size: 12px; color: var(--text2); }
+.pos-value { font-size: 14px; font-weight: 500; }
+.pos-value.up { color: var(--danger); }
+.pos-value.down { color: var(--success); }
+.pos-divider { margin: 8px 0; border: none; border-top: 1px solid var(--border); }
+
+.pct-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.pct-table th { text-align: left; padding: 10px 12px 6px; color: var(--text2); font-weight: 500; font-size: 12px; border-bottom: 1px solid var(--border); }
+.pct-table td { padding: 6px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.pct-table tbody tr:last-child td { border-bottom: none; }
+.pct-table tfoot td { border-top: 2px solid var(--primary); padding: 10px 12px; }
+.sector-row td { padding-top: 10px; }
+.sector-label { font-weight: 600; font-size: 14px; }
+.stock-count { font-size: 11px; color: var(--text2); margin-left: 4px; }
+.stock-name { }
+.stock-code { font-size: 11px; color: var(--text2); margin-left: 4px; }
+.currency-tag { font-size: 9px; background: var(--bg); color: var(--text2); padding: 1px 4px; border-radius: 3px; margin-left: 2px; vertical-align: middle; }
+.pct-num { font-weight: 600; white-space: nowrap; }
+.pct-bar { width: 100%; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; min-width: 40px; }
+.pct-fill { height: 100%; background: var(--primary); border-radius: 3px; transition: width 0.3s; }
+.stock-fill { background: #5b8def; opacity: 0.6; }
+.cash-fill { background: #999; }
+.cash-row td { padding-top: 10px; }
+.total-row td { font-weight: 600; }
+
+.summary-bar { display: flex; justify-content: space-around; padding: 10px; background: var(--card); border-radius: 12px; margin-bottom: 12px; }
+.summary-item { text-align: center; }
+.summary-item .num { font-size: 16px; font-weight: 700; }
+.summary-item .label { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading { display: flex; align-items: center; justify-content: center; padding: 30px; color: var(--text2); }
+.loading::before { content: ''; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 8px; }
+
+.toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 8px; font-size: 14px; z-index: 999; animation: fadeIn 0.3s; }
+@keyframes fadeIn { from { opacity: 0; transform: translateX(-50%) translateY(-10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+.header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.header-bar h2 { margin: 0; }
+.refresh-btn { padding: 6px 12px; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- Toast -->
+  <div v-if="toast.show" class="toast">{{ toast.text }}</div>
+
+  <!-- ===== Tab 1: 交易记录 ===== -->
+  <div class="page" v-show="activeTab === 0">
+    <h2>交易记录</h2>
+    <div class="card">
+      <div class="form-group">
+        <label>股票名称 / 代码 / 拼音</label>
+        <div class="search-wrap">
+          <input v-model="form.searchQuery" @input="onSearchInput" @blur="onSearchBlur" placeholder="输入名称、代码或拼音缩写" type="text" autocomplete="off">
+          <div class="search-results" v-if="showSearch && searchResults.length > 0">
+            <div class="search-item" v-for="s in searchResults" :key="s.code" @mousedown.prevent="selectStock(s)">
+              {{ s.name }} <span class="code">{{ s.code }}</span> <span class="market">{{ s.market }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div v-if="form.stockName" class="form-group" style="margin-top: 4px;">
+        <span style="font-size:14px;color:var(--primary);">已选: {{ form.stockName }} ({{ form.stockCode }})</span>
+      </div>
+      <div class="form-group">
+        <label>所属板块</label>
+        <input v-model="form.sector" placeholder="手动输入板块名称" type="text">
+      </div>
+      <div class="form-group">
+        <label>操作方向</label>
+        <div class="btn-group">
+          <button class="btn btn-outline" :class="{active: form.direction === '买入'}" @click="form.direction='买入'">买入</button>
+          <button class="btn btn-outline" :class="{active: form.direction === '卖出'}" @click="form.direction='卖出'">卖出</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>数量（股）</label>
+          <input v-model.number="form.quantity" type="number" min="1" step="1">
+        </div>
+        <div class="form-group">
+          <label>价格（{{ form.currency || '元' }}）</label>
+          <input v-model.number="form.price" type="number" min="0" step="0.001">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>交易日期</label>
+        <input v-model="form.tradeDate" type="date">
+      </div>
+      <button class="btn btn-primary" @click="submitTrade" :disabled="!canSubmit" style="margin-top:4px;">{{ submitting ? '提交中...' : '提交记录' }}</button>
+    </div>
+
+    <div v-if="trades.length === 0" class="empty-state">暂无交易记录，请在上方添加</div>
+    <div v-else>
+      <div style="font-size:13px;color:var(--text2);margin:8px 4px;">共 {{ trades.length }} 条记录</div>
+      <div class="card" v-for="t in trades" :key="t.id">
+        <div class="trade-item">
+          <div class="trade-info">
+            <div class="trade-name">{{ t.stock_name }} <span class="badge" :class="t.direction==='买入'?'badge-buy':'badge-sell'">{{ t.direction }}</span></div>
+            <div class="trade-detail">{{ t.trade_date }} | {{ t.stock_code }} | {{ t.sector || '未分类' }}</div>
+          </div>
+          <div class="trade-amount">
+            <div class="trade-price">{{ fmt(t.price, 2) }}</div>
+            <div class="trade-qty">{{ t.quantity }}股</div>
+          </div>
+        </div>
+        <div style="text-align:right;margin-top:4px;">
+          <button class="btn btn-sm btn-danger" @click="deleteTrade(t.id)">删除</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+      <!-- ===== Tab 2: 止盈止损 ===== -->
+  <div class="page" v-show="activeTab === 1">
+    <div class="header-bar">
+      <h2>止盈止损</h2>
+      <button class="btn btn-sm btn-primary refresh-btn" @click="refreshPortfolio" :disabled="refreshing">{{ refreshing ? '刷新中...' : '刷新' }}</button>
+    </div>
+    <div v-if="portfolioLoading" class="loading">加载中...</div>
+    <div v-else-if="portfolio.positions.length === 0" class="empty-state">暂无持仓数据</div>
+    <div v-else>
+      <div class="summary-bar">
+        <div class="summary-item">
+          <div class="num" :class="portfolio.total_stock_value_rmb >= 0 ? 'up' : 'down'">{{ fmt(portfolio.total_stock_value_rmb || 0, 2) }}</div>
+          <div class="label">持仓市值(CNY)</div>
+        </div>
+        <div class="summary-item">
+          <div class="num" :class="totalPnl >= 0 ? 'up' : 'down'">{{ totalPnl >= 0 ? '+' : '' }}{{ fmt(totalPnl, 2) }}</div>
+          <div class="label">总盈亏</div>
+        </div>
+        <div class="summary-item">
+          <div class="num" :class="totalPnlPct >= 0 ? 'up' : 'down'">{{ totalPnlPct >= 0 ? '+' : '' }}{{ fmt(totalPnlPct, 2) }}%</div>
+          <div class="label">总盈亏率</div>
+        </div>
+      </div>
+
+      <div class="card pos-card" v-for="pos in portfolio.positions" :key="pos.stock_code">
+        <div class="pos-header">
+          <div>
+            <span class="pos-name">{{ pos.stock_name }}</span>
+            <span class="pos-code">{{ pos.stock_code }}</span>
+            <span class="badge" style="font-size:10px;background:var(--bg);color:var(--text2);margin-left:4px;">{{ pos.currency }}</span>
+          </div>
+          <div style="text-align:right;">
+            <div class="pos-value" :class="pos.pnl_pct >= 0 ? 'up' : 'down'">{{ pos.pnl_pct >= 0 ? '+' : '' }}{{ fmt(pos.pnl_pct, 2) }}%</div>
+            <div style="font-size:11px;color:var(--text2);">建仓: {{ pos.first_buy_date }}</div>
+          </div>
+        </div>
+        <div class="pos-grid">
+          <div><div class="pos-label">成本</div><div class="pos-value">{{ fmt(pos.avg_cost, 2) }}</div></div>
+          <div><div class="pos-label">股数</div><div class="pos-value">{{ pos.shares }}</div></div>
+          <div><div class="pos-label">最新价</div><div class="pos-value">{{ fmt(pos.current_price, 2) }}</div></div>
+          <div><div class="pos-label">市值({{ pos.currency }})</div><div class="pos-value">{{ fmt(pos.market_value, 2) }}</div></div>
+          <div><div class="pos-label">市值(CNY)</div><div class="pos-value">{{ fmt(pos.market_value_rmb, 2) }}</div></div>
+          <div><div class="pos-label">盈亏金额</div><div class="pos-value" :class="pos.pnl_amount >= 0 ? 'up' : 'down'">{{ pos.pnl_amount >= 0 ? '+' : '' }}{{ fmt(pos.pnl_amount, 2) }}</div></div>
+          <div><div class="pos-label">最高收盘</div><div class="pos-value">{{ pos.highest_close ? fmt(pos.highest_close, 2) : '-' }}</div></div>
+          <div><div class="pos-label">最高浮盈</div><div class="pos-value up">{{ pos.highest_pnl_pct > 0 ? '+' : '' }}{{ fmt(pos.highest_pnl_pct, 2) }}%</div></div>
+          <div><div class="pos-label">板块</div><div class="pos-value">{{ pos.sector || '-' }}</div></div>
+        </div>
+        <hr class="pos-divider">
+        <div class="pos-grid">
+          <div><div class="pos-label">止盈卖点</div><div class="pos-value up">{{ pos.take_profit_price !== null ? fmt(pos.take_profit_price, 2) : '不触发' }}</div></div>
+          <div><div class="pos-label">止损卖点</div><div class="pos-value down">{{ pos.stop_loss_price ? fmt(pos.stop_loss_price, 2) : '-' }}</div></div>
+        </div>
+        <div style="margin-top:6px;font-size:11px;color:var(--text2);">
+          <span v-if="pos.take_profit_price !== null">止盈规则: 最高浮盈{{ fmt(pos.highest_pnl_pct, 2) }}%, 按规则回撤触发</span>
+          <span v-else>止盈规则: 最高浮盈{{ fmt(pos.highest_pnl_pct, 2) }}% &lt; 20%, 不触发止盈</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Tab 3: 持仓汇总 ===== -->
+  <div class="page" v-show="activeTab === 2">
+    <h2>持仓汇总</h2>
+    <div v-if="portfolioLoading" class="loading">加载中...</div>
+    <div v-else-if="(!portfolio.sector_summary || portfolio.sector_summary.length === 0) && portfolio.account_total_rmb === 0" class="empty-state">暂无持仓数据</div>
+    <div v-else>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:6px;" v-if="portfolio.hkd_rate">汇率: 1 HKD = {{ fmt(portfolio.hkd_rate, 4) }} CNY</div>
+
+      <!-- 纯百分比表格 -->
+      <div class="card" style="padding: 0;">
+        <table class="pct-table">
+          <thead>
+            <tr><th style="width:50%;">板块 / 股票</th><th>占比</th><th></th></tr>
+          </thead>
+          <tbody>
+            <template v-for="sg in portfolio.sector_summary" :key="sg.sector">
+              <!-- 板块行 -->
+              <tr class="sector-row">
+                <td><span class="sector-label">{{ sg.sector }}</span><span class="stock-count">{{ sg.count }}只</span></td>
+                <td class="pct-num">{{ fmt(sg.sector_pct, 2) }}%</td>
+                <td><div class="pct-bar"><div class="pct-fill" :style="{width: sg.sector_pct + '%'}"></div></div></td>
+              </tr>
+              <!-- 板块内个股 -->
+              <tr class="stock-row" v-for="pos in sg.positions" :key="pos.stock_code">
+                <td><span class="stock-name">{{ pos.stock_name }}</span><span class="stock-code">{{ pos.stock_code }}</span><span class="currency-tag">{{ pos.currency }}</span></td>
+                <td class="pct-num">{{ fmt(pos.pct_of_total, 2) }}%</td>
+                <td><div class="pct-bar"><div class="pct-fill stock-fill" :style="{width: pos.pct_of_total + '%'}"></div></div></td>
+              </tr>
+            </template>
+            <!-- 现金行 -->
+            <tr class="cash-row" v-if="settings.cash > 0">
+              <td><span class="sector-label">持有现金</span></td>
+              <td class="pct-num">{{ fmt(cashPct, 2) }}%</td>
+              <td><div class="pct-bar"><div class="pct-fill cash-fill" :style="{width: cashPct + '%'}"></div></div></td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr class="total-row">
+              <td><span style="font-weight:700;">账户总值</span><span style="font-size:11px;color:var(--text2);margin-left:4px;">{{ fmt(portfolio.account_total_rmb || 0, 2) }} CNY</span></td>
+              <td class="pct-num">100.00%</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- 现金与负债 -->
+      <div class="card" style="margin-top:8px;">
+        <div class="form-group">
+          <label>持有现金（CNY）</label>
+          <input v-model.number="settings.cash" type="number" step="0.01" @change="saveSettings">
+        </div>
+        <div class="form-group">
+          <label>总负债（CNY）</label>
+          <input v-model.number="settings.debt" type="number" step="0.01" @change="saveSettings">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Tab Bar ===== -->
+  <div class="tab-bar">
+    <div class="tab-item" :class="{active: activeTab === 0}" @click="activeTab = 0">
+      <span class="tab-icon">📝</span>
+      <span>交易记录</span>
+    </div>
+    <div class="tab-item" :class="{active: activeTab === 1}" @click="switchToTab(1)">
+      <span class="tab-icon">📊</span>
+      <span>止盈止损</span>
+    </div>
+    <div class="tab-item" :class="{active: activeTab === 2}" @click="switchToTab(2)">
+      <span class="tab-icon">📋</span>
+      <span>持仓汇总</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp } = Vue;
+
+createApp({
+  data() {
+    return {
+      activeTab: 0,
+      form: {
+        searchQuery: '',
+        stockCode: '',
+        stockName: '',
+        currency: 'CNY',
+        sector: '',
+        direction: '买入',
+        quantity: 100,
+        price: 0,
+        tradeDate: new Date().toISOString().slice(0, 10),
+      },
+      searchResults: [],
+      showSearch: false,
+      searchTimer: null,
+      trades: [],
+      portfolio: { positions: [], sector_summary: [], total_stock_value_rmb: 0, cash: 0, debt: 0, account_total_rmb: 0, hkd_rate: 0 },
+      settings: { cash: 0, debt: 0 },
+      portfolioLoading: false,
+      refreshing: false,
+      submitting: false,
+      toast: { show: false, text: '', timer: null },
+    };
+  },
+  computed: {
+    canSubmit() {
+      return this.form.stockCode && this.form.stockName && this.form.quantity > 0 && this.form.price > 0 && this.form.tradeDate;
+    },
+    totalPnl() {
+      return this.portfolio.positions.reduce((sum, p) => sum + p.pnl_amount, 0);
+    },
+    totalPnlPct() {
+      if (!this.portfolio.positions.length) return 0;
+      const totalCost = this.portfolio.positions.reduce((sum, p) => sum + p.avg_cost * p.shares, 0);
+      return totalCost > 0 ? this.totalPnl / totalCost * 100 : 0;
+    },
+    cashPct() {
+      const total = this.portfolio.account_total_rmb || 0;
+      return total > 0 ? (this.settings.cash || 0) / total * 100 : 0;
+    },
+  },
+  methods: {
+    fmt(val, digits = 2) {
+      if (val === null || val === undefined) return '-';
+      const n = Number(val);
+      if (isNaN(n)) return '-';
+      return n.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+    },
+      this.toast.text = text;
+      this.toast.show = true;
+      if (this.toast.timer) clearTimeout(this.toast.timer);
+      this.toast.timer = setTimeout(() => { this.toast.show = false; }, 2000);
+    },
+    onSearchInput() {
+      if (this.searchTimer) clearTimeout(this.searchTimer);
+      this.form.stockCode = '';
+      this.form.stockName = '';
+      if (!this.form.searchQuery.trim()) {
+        this.searchResults = [];
+        this.showSearch = false;
+        return;
+      }
+      this.searchTimer = setTimeout(() => {
+        fetch('/api/stocks/search?q=' + encodeURIComponent(this.form.searchQuery.trim()))
+          .then(r => r.json())
+          .then(data => {
+            this.searchResults = data.results || [];
+            this.showSearch = this.searchResults.length > 0;
+          })
+          .catch(() => {});
+      }, 300);
+    },
+    onSearchBlur() {
+      setTimeout(() => { this.showSearch = false; }, 200);
+    },
+    getCurrency(code) {
+      return /^\d{5}$/.test(code.trim()) ? 'HKD' : 'CNY';
+    },
+    selectStock(s) {
+      this.form.stockCode = s.code;
+      this.form.stockName = s.name;
+      this.form.currency = this.getCurrency(s.code);
+      this.form.searchQuery = s.name + ' (' + s.code + ')';
+      this.showSearch = false;
+    },
+    submitTrade() {
+      if (!this.canSubmit || this.submitting) return;
+      this.submitting = true;
+      fetch('/api/trades', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stock_code: this.form.stockCode,
+          stock_name: this.form.stockName,
+          sector: this.form.sector,
+          direction: this.form.direction,
+          quantity: this.form.quantity,
+          price: this.form.price,
+          trade_date: this.form.tradeDate,
+        }),
+      })
+      .then(r => r.json())
+      .then(data => {
+        this.showToast('提交成功');
+        this.resetForm();
+        this.loadTrades();
+      })
+      .catch(e => this.showToast('提交失败: ' + e.message))
+      .finally(() => { this.submitting = false; });
+    },
+    resetForm() {
+      this.form.searchQuery = '';
+      this.form.stockCode = '';
+      this.form.stockName = '';
+      this.form.currency = 'CNY';
+      this.form.sector = '';
+      this.form.direction = '买入';
+      this.form.quantity = 100;
+      this.form.price = 0;
+      this.form.tradeDate = new Date().toISOString().slice(0, 10);
+      this.searchResults = [];
+    },
+    loadTrades() {
+      fetch('/api/trades')
+        .then(r => r.json())
+        .then(data => { this.trades = data.trades || []; })
+        .catch(() => {});
+    },
+    deleteTrade(id) {
+      if (!confirm('确定删除此记录？')) return;
+      fetch('/api/trades/' + id, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(() => {
+          this.showToast('已删除');
+          this.loadTrades();
+        })
+        .catch(e => this.showToast('删除失败'));
+    },
+    loadPortfolio() {
+      this.portfolioLoading = true;
+      fetch('/api/portfolio')
+        .then(r => r.json())
+        .then(data => {
+          this.portfolio = data;
+          this.settings.cash = data.cash || 0;
+          this.settings.debt = data.debt || 0;
+        })
+        .catch(e => this.showToast('加载持仓失败'))
+        .finally(() => { this.portfolioLoading = false; });
+    },
+    refreshPortfolio() {
+      this.refreshing = true;
+      fetch('/api/portfolio')
+        .then(r => r.json())
+        .then(data => {
+          this.portfolio = data;
+          this.settings.cash = data.cash || 0;
+          this.settings.debt = data.debt || 0;
+          this.showToast('刷新成功');
+        })
+        .catch(e => this.showToast('刷新失败'))
+        .finally(() => { this.refreshing = false; });
+    },
+    saveSettings() {
+      fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cash: this.settings.cash, debt: this.settings.debt }),
+      })
+      .then(r => r.json())
+      .then(() => {
+        this.showToast('设置已保存');
+        this.loadPortfolio();
+      })
+      .catch(e => this.showToast('保存失败'));
+    },
+    switchToTab(tab) {
+      this.activeTab = tab;
+      if (tab === 1 || tab === 2) {
+        this.loadPortfolio();
+      }
+    },
+  },
+  mounted() {
+    this.loadTrades();
+  },
+}).mount('#app');
+</script>
+</body>
+</html>
